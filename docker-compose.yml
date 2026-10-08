@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: boe_bot_esther
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # Mount the JSON file directly so it persists if container is recreated
+      # This requires touching the file before running docker-compose up
+      # or mounting the whole directory, but for simplicity let's mount a directory
+      - ./data:/app/data
