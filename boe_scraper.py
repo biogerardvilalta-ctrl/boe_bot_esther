@@ -1,7 +1,10 @@
 import requests
 import json
 import datetime
+from zoneinfo import ZoneInfo
 import unicodedata
+
+SPAIN_TZ = ZoneInfo("Europe/Madrid")
 
 def remove_accents(input_str):
     nfkd_form = unicodedata.normalize('NFKD', input_str)
@@ -32,8 +35,8 @@ def search_boe_for_resolutions():
     Fetches the BOE for the current day and searches for specific resolutions.
     Returns a list of matching dictionaries with details.
     """
-    # Current date in YYYYMMDD format
-    today_str = datetime.datetime.now().strftime('%Y%m%d')
+    # Current date in YYYYMMDD format (Peninsular Spain timezone)
+    today_str = datetime.datetime.now(SPAIN_TZ).strftime('%Y%m%d')
     url = f"https://www.boe.es/datosabiertos/api/boe/sumario/{today_str}"
     
     headers = {

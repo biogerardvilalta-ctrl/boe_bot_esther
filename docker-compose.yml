@@ -5,6 +5,8 @@ services:
     build: .
     container_name: boe_bot_esther
     restart: unless-stopped
+    environment:
+      - TZ=Europe/Madrid
     env_file:
       - .env
     volumes:

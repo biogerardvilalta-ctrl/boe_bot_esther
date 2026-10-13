@@ -2,6 +2,7 @@ import os
 import json
 import asyncio
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
@@ -10,6 +11,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from boe_scraper import search_boe_for_resolutions
 
 load_dotenv()
+
+SPAIN_TZ = ZoneInfo("Europe/Madrid")
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
@@ -20,7 +23,7 @@ os.makedirs("data", exist_ok=True)
 
 # Set up logging or print statements
 def log(msg):
-    print(f"[{datetime.now().isoformat()}] {msg}")
+    print(f"[{datetime.now(SPAIN_TZ).isoformat()}] {msg}")
 
 def load_sent_notifications():
     if os.path.exists(SENT_NOTIFICATIONS_FILE):
@@ -38,13 +41,6 @@ def save_sent_notification(notification_id):
         sent.append(notification_id)
         try:
             with open(SENT_NOTIFICATIONS_FILE, 'w') as f:
-                json.write(f, json.dumps(sent))
-        except Exception as e:
-            # Maybe json.write is wrong, should be f.write
-            pass
-        # Correct way
-        try:
-            with open(SENT_NOTIFICATIONS_FILE, 'w') as f:
                 json.dump(sent, f)
         except Exception as e:
             log(f"Error saving sent notifications: {e}")
@@ -60,7 +56,12 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Responds to /status to verify sweep is active."""
-    await update.message.reply_text("✅ L'escombrat del BOE està actiu i executant-se correctament.")
+    now_str = datetime.now(SPAIN_TZ).strftime("%H:%M:%S (%d/%m/%Y)")
+    await update.message.reply_text(
+        f"✅ L'escombrat del BOE està actiu i executant-se correctament.\n\n"
+        f"⏰ Horari programat: De dilluns a divendres de 8:00h a 16:00h (hora peninsular espanyola).\n"
+        f"🕒 Hora actual del bot: {now_str}"
+    )
 
 async def perform_boe_sweep(context: ContextTypes.DEFAULT_TYPE):
     """The scheduled task to check BOE."""
@@ -91,9 +92,10 @@ async def perform_boe_sweep(context: ContextTypes.DEFAULT_TYPE):
             except Exception as e:
                 log(f"Failed to send Telegram message: {e}")
                 
-    # Send daily summary at 16h if nothing was found today
-    if datetime.now().hour == 16 and not resolutions:
-        date_str = datetime.now().strftime("%d/%m/%Y")
+    # Send daily summary at 16h if nothing was found today (in Spain timezone)
+    now_spain = datetime.now(SPAIN_TZ)
+    if now_spain.hour == 16 and not resolutions:
+        date_str = now_spain.strftime("%d/%m/%Y")
         summary_msg = f"ℹ️ Avui dia {date_str}, he fet l'escombrat des de les 8h del matí a cada hora i no he trobat cap documentació."
         try:
             await context.bot.send_message(
@@ -118,16 +120,18 @@ def main():
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("status", status_command))
 
-    # Initialize Scheduler
-    scheduler = AsyncIOScheduler()
+    # Initialize Scheduler configured for Spain (Europe/Madrid) timezone
+    # This automatically handles Daylight Saving Time (DST) changes (CET/CEST)
+    scheduler = AsyncIOScheduler(timezone=SPAIN_TZ)
     
-    # Run the sweep every hour on weekdays (Mon-Fri) from 8 to 16
+    # Run the sweep every hour on weekdays (Mon-Fri) from 8 to 16 in Spain timezone
     scheduler.add_job(
         perform_boe_sweep, 
         'cron', 
         day_of_week='mon-fri', 
         hour='8-16', 
         minute=0,
+        timezone=SPAIN_TZ,
         kwargs={'context': application}
     )
     
