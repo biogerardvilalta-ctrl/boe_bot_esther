@@ -23,7 +23,7 @@ os.makedirs("data", exist_ok=True)
 
 # Set up logging or print statements
 def log(msg):
-    print(f"[{datetime.now(SPAIN_TZ).isoformat()}] {msg}")
+    print(f"[{datetime.now(SPAIN_TZ).isoformat()}] {msg}", flush=True)
 
 def load_sent_notifications():
     if os.path.exists(SENT_NOTIFICATIONS_FILE):
